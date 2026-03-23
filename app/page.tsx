@@ -1,65 +1,113 @@
-import Image from "next/image";
+import Link from 'next/link';
+import Header from './components/Header';
+
+function HeroTshirt() {
+  return (
+    <div className="flex h-[360px] items-center justify-center rounded-[32px] bg-gradient-to-br from-red-50 via-zinc-50 to-zinc-100">
+      <svg viewBox="0 0 240 240" className="h-64 w-64" fill="none">
+        <path
+          d="M78 52L98 34H142L162 52L195 67L178 98L160 90V196H80V90L62 98L45 67L78 52Z"
+          fill="#FFFFFF"
+          stroke="#18181B"
+          strokeWidth="6"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M98 34C100 46 108 54 120 54C132 54 140 46 142 34"
+          stroke="#18181B"
+          strokeWidth="6"
+          strokeLinecap="round"
+        />
+        <rect x="96" y="94" width="56" height="56" rx="8" fill="#18181B" />
+        <path d="M102 102L146 144" stroke="#FEF2F2" strokeWidth="4" strokeLinecap="round" />
+        <path d="M146 102L102 144" stroke="#FEF2F2" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="min-h-screen bg-zinc-100 text-zinc-900">
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-5 px-6 py-6 lg:px-10">
+        <Header />
+
+        <section className="grid flex-1 items-stretch gap-5 lg:grid-cols-[1fr_1fr]">
+          <div className="rounded-[32px] border border-zinc-200 bg-white p-8 shadow-sm lg:p-10">
+            <div className="mb-4 inline-flex rounded-full bg-red-600 px-4 py-2 text-xs font-semibold text-white">
+              Adversarial Patch Research Demo
+            </div>
+
+            <h1 className="text-4xl font-bold tracking-tight lg:text-5xl">
+              적대적 패치 의류
+              <br />
+              제작 스튜디오 데모
+            </h1>
+
+            <p className="mt-5 max-w-xl text-base leading-7 text-zinc-600">
+              본 프로젝트는 물리적 적대적 패치를 실제 의류에 적용하여 YOLO 기반 사람 탐지
+              회피 가능성을 검증하고, 부위별 패치 위치와 의류 조합에 따른 효과를 비교하는
+              것을 목표로 합니다. 웹에서는 적대적 패치 적용 의류를 선택하고 시연 구성을
+              확인할 수 있도록 설계했습니다.
+            </p>
+
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                href="/products/tshirt"
+                className="rounded-2xl bg-zinc-900 px-5 py-3 font-medium text-white transition hover:bg-black"
+              >
+                적대적 패치 시연 시작
+              </Link>
+
+              <button
+                type="button"
+                className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-700 transition hover:bg-zinc-50"
+              >
+                연구 개요 보기
+              </button>
+            </div>
+
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl bg-zinc-100 p-4">
+                <div className="text-xs text-zinc-500">연구 주제</div>
+                <div className="mt-1 font-semibold">물리적 적대적 패치 의류 적용</div>
+              </div>
+
+              <div className="rounded-2xl bg-zinc-100 p-4">
+                <div className="text-xs text-zinc-500">검증 목표</div>
+                <div className="mt-1 font-semibold">YOLO 기반 탐지 회피 효과 비교</div>
+              </div>
+
+              <div className="rounded-2xl bg-red-50 p-4">
+                <div className="text-xs text-red-700">웹 구현 범위</div>
+                <div className="mt-1 font-semibold">티셔츠 및 복수 의류 조합 시연</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[32px] border border-zinc-200 bg-white p-6 shadow-sm lg:p-8">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-zinc-500">대표 시연 시안</div>
+                <h2 className="text-2xl font-bold">적대적 패치 티셔츠 미리보기</h2>
+              </div>
+
+              <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                Demo Preview
+              </span>
+            </div>
+
+            <HeroTshirt />
+
+            <Link
+              href="/products/tshirt"
+              className="mt-5 block rounded-2xl bg-red-600 px-5 py-3 text-center font-medium text-white transition hover:bg-red-700"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+              티셔츠 패치 시연 보기
+            </Link>
+          </div>
+        </section>
+      </div>
+    </main>
   );
 }
