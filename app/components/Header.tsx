@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 
 function SearchIcon() {
   return (
@@ -68,6 +69,32 @@ function ChevronDownIcon() {
   );
 }
 
+function MenuIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none">
+      <path
+        d="M4 7H20M4 12H20M4 17H20"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none">
+      <path
+        d="M6 6L18 18M18 6L6 18"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function IconButton({
   label,
   children,
@@ -96,14 +123,17 @@ const clothingItems = [
 ];
 
 export default function Header() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileClothingOpen, setMobileClothingOpen] = useState(false);
+
   return (
-    <header className="rounded-[28px] border border-zinc-200 bg-white px-5 py-4 shadow-sm">
-      <div className="flex items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900 shadow-sm">
+    <header className="rounded-[24px] border border-zinc-200 bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5">
+      <div className="flex items-center justify-between gap-3">
+        <Link href="/" className="flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-zinc-900 shadow-sm sm:h-11 sm:w-11">
             <div className="h-3 w-3 rounded-full bg-red-500" />
           </div>
-          <div className="text-2xl font-extrabold tracking-tight text-zinc-900">
+          <div className="truncate text-xl font-extrabold tracking-tight text-zinc-900 sm:text-2xl">
             안보<span className="text-red-600">Easy</span>
           </div>
         </Link>
@@ -118,7 +148,7 @@ export default function Header() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="hidden items-center gap-2 sm:flex">
           <IconButton label="좋아요">
             <HeartIcon />
           </IconButton>
@@ -129,9 +159,28 @@ export default function Header() {
             <UserIcon />
           </IconButton>
         </div>
+
+        <button
+          type="button"
+          aria-label="모바일 메뉴"
+          onClick={() => setMobileMenuOpen((prev) => !prev)}
+          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-zinc-300 bg-white text-zinc-700 transition hover:border-red-400 hover:bg-red-50 sm:hidden"
+        >
+          {mobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
+        </button>
       </div>
 
-      <nav className="mt-4 flex flex-wrap items-center gap-6 border-t border-zinc-200 pt-3 text-sm text-zinc-600">
+      <div className="mt-4 md:hidden">
+        <div className="flex h-11 w-full items-center gap-2 rounded-2xl border border-zinc-300 bg-zinc-50 px-4">
+          <SearchIcon />
+          <input
+            className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400"
+            placeholder="적대적 패치, 의류 조합, 시연 구성 검색"
+          />
+        </div>
+      </div>
+
+      <nav className="mt-4 hidden flex-wrap items-center gap-x-6 gap-y-3 border-t border-zinc-200 pt-3 text-sm text-zinc-600 sm:flex">
         <Link href="/" className="font-medium text-zinc-900">
           홈
         </Link>
@@ -181,6 +230,91 @@ export default function Header() {
           방어 인사이트
         </button>
       </nav>
+
+      {mobileMenuOpen && (
+        <div className="mt-4 space-y-3 border-t border-zinc-200 pt-4 sm:hidden">
+          <Link
+            href="/"
+            className="block rounded-2xl border border-zinc-200 px-4 py-3 text-sm font-medium text-zinc-900"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            홈
+          </Link>
+
+          <div className="rounded-2xl border border-zinc-200">
+            <button
+              type="button"
+              onClick={() => setMobileClothingOpen((prev) => !prev)}
+              className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-red-600"
+            >
+              의류
+              <ChevronDownIcon />
+            </button>
+
+            {mobileClothingOpen && (
+              <div className="border-t border-zinc-200 px-2 py-2">
+                {clothingItems.map((item) =>
+                  item.clickable ? (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className="block rounded-xl px-3 py-2 text-sm font-medium text-zinc-900 transition hover:bg-red-50 hover:text-red-600"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {item.name}
+                    </Link>
+                  ) : (
+                    <button
+                      key={item.name}
+                      type="button"
+                      className="block w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-zinc-500"
+                    >
+                      {item.name}
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="block w-full rounded-2xl border border-zinc-200 px-4 py-3 text-left text-sm font-medium text-zinc-700"
+          >
+            패치 설계
+          </button>
+          <button
+            type="button"
+            className="block w-full rounded-2xl border border-zinc-200 px-4 py-3 text-left text-sm font-medium text-zinc-700"
+          >
+            시연 구성
+          </button>
+          <button
+            type="button"
+            className="block w-full rounded-2xl border border-zinc-200 px-4 py-3 text-left text-sm font-medium text-zinc-700"
+          >
+            연구 개요
+          </button>
+          <button
+            type="button"
+            className="block w-full rounded-2xl border border-zinc-200 px-4 py-3 text-left text-sm font-medium text-zinc-700"
+          >
+            방어 인사이트
+          </button>
+
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            <IconButton label="좋아요">
+              <HeartIcon />
+            </IconButton>
+            <IconButton label="장바구니">
+              <CartIcon />
+            </IconButton>
+            <IconButton label="마이페이지">
+              <UserIcon />
+            </IconButton>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
