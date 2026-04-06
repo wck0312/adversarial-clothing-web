@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 
 /* ───── 데이터 ───── */
 const MEGA_MENU = {
@@ -71,8 +72,8 @@ export default function Home() {
           </div>
           <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
             <span style={{ fontSize: 12, color: "#555", cursor: "pointer" }}>KR ▾</span>
-            <span style={{ fontSize: 12, color: "#555", cursor: "pointer" }}>로그인</span>
-            <span style={{ fontSize: 12, color: "#555", cursor: "pointer" }}>회원가입</span>
+            <Link href="/login" style={{ fontSize: 12, color: "#555", textDecoration: "none", cursor: "pointer" }}>로그인</Link>
+            <Link href="/signup" style={{ fontSize: 12, color: "#555", textDecoration: "none", cursor: "pointer" }}>회원가입</Link>
           </div>
         </div>
       </div>
