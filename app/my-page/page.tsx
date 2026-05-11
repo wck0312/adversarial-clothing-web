@@ -1,5 +1,7 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import AuthGuard from "../components/AuthGuard";
 
 const NAV_TABS = ["구매내역", "찜한 상품", "포인트", "나의 리뷰", "계정 설정"];
 
@@ -12,14 +14,28 @@ const ORDER_STEPS = [
   { label: "배송 완료",    desc: "배송이 완료되었습니다.\n배송 완료일 포함 7일 이내\n교환/반품신청이 가능합니다." },
 ];
 
-export default function MyPage() {
+function MyPageContent() {
+  const [userName, setUserName] = useState("사용자");
+
+  // localStorage에서 user 정보 읽기
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("user");
+      if (raw) {
+        const user = JSON.parse(raw);
+        // 백엔드 응답 키에 맞게 수정하세요 (name / username / nickname 등)
+        setUserName(user.name ?? user.username ?? user.nickname ?? "사용자");
+      }
+    } catch {
+      setUserName("사용자");
+    }
+  }, []);
+
   return (
     <div style={{ fontFamily: "'Pretendard Variable', 'Pretendard', -apple-system, sans-serif", background: "#fff", color: "#111", minHeight: "100vh" }}>
       <style>{`
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css');
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        .search-input { width: 100%; border: none; outline: none; font-size: 13px; background: transparent; font-family: inherit; color: #333; }
-        .search-input::placeholder { color: #aaa; }
         .my-tab { font-size: 14px; color: #888; cursor: pointer; padding-bottom: 2px; border-bottom: 2px solid transparent; transition: all 0.15s; text-decoration: none; }
         .my-tab:hover { color: #111; }
         .my-tab.active { color: #111; font-weight: 700; border-bottom-color: #111; }
@@ -29,54 +45,14 @@ export default function MyPage() {
         .order-desc { font-size: 11px; color: #666; line-height: 1.6; white-space: pre-line; }
       `}</style>
 
-      {/* ── 상단 네비 ── */}
-      <div style={{ borderBottom: "1px solid #eee" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 48px", display: "flex", justifyContent: "space-between", alignItems: "center", height: 36 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#111" }}>안보EASY</span>
-            <span style={{ width: 1, height: 11, background: "#ddd" }} />
-            <span style={{ fontSize: 11, color: "#888" }}>Adversarial Clothing Web</span>
-          </div>
-          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-            <span style={{ fontSize: 11, color: "#555", cursor: "pointer" }}>KR ▾</span>
-            <Link href="/login"  style={{ fontSize: 11, color: "#555", textDecoration: "none" }}>로그인</Link>
-            <Link href="/signup" style={{ fontSize: 11, color: "#555", textDecoration: "none" }}>회원가입</Link>
-          </div>
-        </div>
-      </div>
-      <div style={{ borderBottom: "1px solid #eee" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 48px", display: "flex", alignItems: "center", gap: 16, height: 56 }}>
-          <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }}>
-            <span style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-1px", color: "#111" }}>
-              <span style={{ color: "#e8541e" }}>A</span>CW
-            </span>
-          </Link>
-          <div style={{ width: 320, background: "#f5f5f5", borderRadius: 8, display: "flex", alignItems: "center", padding: "0 12px", height: 36, gap: 8 }}>
-            <svg width="14" height="14" fill="none" stroke="#999" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input className="search-input" placeholder="검색어를 입력하세요" />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginLeft: "auto" }}>
-            <Link href="/wish">
-              <svg width="20" height="20" fill="none" stroke="#333" strokeWidth="1.8" viewBox="0 0 24 24" style={{ cursor: "pointer", display: "block" }}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-            </Link>
-            <Link href="/cart">
-              <svg width="20" height="20" fill="none" stroke="#333" strokeWidth="1.8" viewBox="0 0 24 24" style={{ cursor: "pointer", display: "block" }}><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-            </Link>
-            <Link href="/my-page">
-              <svg width="20" height="20" fill="none" stroke="#333" strokeWidth="1.8" viewBox="0 0 24 24" style={{ cursor: "pointer", display: "block" }}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 본문 ── */}
+      {/* ── 본문 (네비는 layout.tsx의 TopNav가 담당) ── */}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 48px 80px" }}>
 
         <Link href="/my-page" style={{ textDecoration: "none" }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 24, letterSpacing: "-0.5px", cursor: "pointer", color: "#111" }}>마이페이지</h1>
         </Link>
 
-        {/* 탭 — 어떤 탭도 굵게 활성화되지 않음 */}
+        {/* 탭 */}
         <div style={{ display: "flex", gap: 24, marginBottom: 32, borderBottom: "1px solid #eee" }}>
           {NAV_TABS.map((tab, i) => (
             <Link
@@ -90,24 +66,22 @@ export default function MyPage() {
           ))}
         </div>
 
-        {/* 유저 요약 카드 */}
+        {/* 유저 요약 카드 — 실제 이름 표시 */}
         <div style={{ background: "#111", borderRadius: 16, padding: "32px 40px", display: "flex", alignItems: "center", gap: 0, marginBottom: 48 }}>
-          {/* 유저 이름 */}
           <div style={{ flex: 2 }}>
             <p style={{ fontSize: 13, color: "#aaa", marginBottom: 6, cursor: "pointer" }}>개인정보 변경</p>
+            {/* ↓ 여기가 핵심: 고정 텍스트 → 실제 userName 표시 */}
             <p style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.5px" }}>
-              사용자 님,<br />반가워요 👋
+              {userName} 님,<br />반가워요 👋
             </p>
           </div>
-          {/* 구분선 */}
           <div style={{ width: 1, height: 60, background: "#333", margin: "0 32px" }} />
-          {/* 통계 */}
           {[
             { label: "리뷰", value: "0 / 0 개" },
             { label: "장바구니", value: "0 개" },
             { label: "찜한 상품", value: "0 개" },
             { label: "포인트", value: "0 P" },
-          ].map((item, i) => (
+          ].map((item) => (
             <div key={item.label} style={{ flex: 1, textAlign: "center" }}>
               <p style={{ fontSize: 13, color: "#888", marginBottom: 8 }}>{item.label}</p>
               <p style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{item.value}</p>
@@ -123,7 +97,7 @@ export default function MyPage() {
 
         {/* 주문 단계 */}
         <div style={{ display: "flex", gap: 0, marginBottom: 32, borderBottom: "1px solid #eee", paddingBottom: 28 }}>
-          {ORDER_STEPS.map((step, i) => (
+          {ORDER_STEPS.map((step) => (
             <div key={step.label} className="order-col">
               <div className="order-num">0</div>
               <div className="order-label">{step.label}</div>
@@ -145,5 +119,14 @@ export default function MyPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// AuthGuard로 감싸서 export — 비로그인이면 /login으로 리다이렉트
+export default function MyPage() {
+  return (
+    <AuthGuard>
+      <MyPageContent />
+    </AuthGuard>
   );
 }
