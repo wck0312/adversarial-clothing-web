@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import Link from "next/link";
 import AuthGuard from "../components/AuthGuard";
 
@@ -16,7 +16,6 @@ function CartContent() {
       <div style={{ flex: 1, maxWidth: 1200, margin: "0 auto", padding: "40px 48px 80px", width: "100%" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 20, letterSpacing: "-0.5px" }}>장바구니</h1>
 
-        {/* 스텝 브레드크럼 */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 48 }}>
           <span className="step-item active">장바구니</span>
           <span style={{ color: "#ccc", fontSize: 13 }}>›</span>
@@ -25,7 +24,6 @@ function CartContent() {
           <span className="step-item inactive">주문 완료</span>
         </div>
 
-        {/* 빈 상태 */}
         <div style={{ textAlign: "center", padding: "80px 0" }}>
           <p style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>장바구니에 담은 상품이 없어요.</p>
           <p style={{ fontSize: 14, color: "#888" }}>비어있는 장바구니를 채워주세요!</p>

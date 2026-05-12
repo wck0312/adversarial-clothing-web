@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -12,20 +12,19 @@ export default function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+    console.log("AuthGuard 실행됨 - token:", token);
     if (!token) {
+      console.log("token 없음 - 로그인 페이지로 이동");
       setStatus("redirect");
       router.replace("/login");
     } else {
+      console.log("token 있음 - 정상 렌더링");
       setStatus("ok");
     }
   }, [router]);
 
-  // 검사 중 → 아무것도 안 보여줌 (깜빡임 방지)
   if (status === "loading") return null;
-
-  // 리다이렉트 중 → 아무것도 안 보여줌
   if (status === "redirect") return null;
 
-  // 로그인 확인 완료 → 정상 렌더링
   return <>{children}</>;
 }

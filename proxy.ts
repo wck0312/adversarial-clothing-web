@@ -1,18 +1,22 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+﻿import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+const PROTECTED = ["/cart", "/wish", "/my-page"];
 
 export function proxy(request: NextRequest) {
-  const token = request.cookies.get('token')?.value
+  const { pathname } = request.nextUrl;
+  const isProtected = PROTECTED.some((path) => pathname.startsWith(path));
 
-  const protectedPaths = ['/mypage', '/cart', '/wishlist']
-
-  const isProtected = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  )
-
-  if (isProtected && !token) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  if (isProtected) {
+    const token = request.cookies.get("token")?.value;
+    if (!token) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
   }
 
-  return NextResponse.next()
+  return NextResponse.next();
 }
+
+export const config = {
+  matcher: ["/cart/:path*", "/wish/:path*", "/my-page/:path*"],
+};
