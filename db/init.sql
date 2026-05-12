@@ -1,5 +1,5 @@
-SET NAMES utf8mb4;
-
+﻿SET NAMES utf8mb4;
+DROP TABLE IF EXISTS cart;
 DROP TABLE IF EXISTS designs;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS products;
@@ -38,38 +38,21 @@ CREATE TABLE designs (
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
 );
 
-INSERT INTO users (name, email, phone, password) VALUES
-(
-  CONVERT(0xEC9588EBB3B4 USING utf8mb4),
+CREATE TABLE cart (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  product_name VARCHAR(100) NOT NULL,
+  color VARCHAR(50) NOT NULL,
+  size VARCHAR(10) NOT NULL,
+  quantity INT NOT NULL DEFAULT 1,
+  price INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+INSERT INTO users (name, email, phone, password) VALUES (
+  '안보',
   'acweb@gmail.com',
   '010-2222-2222',
   '$2b$10$ubcfx077xziOMloyHJAc1u6Ixx02cwazuhtD7s8drODgCpX3lkGhu'
-);
-
-INSERT INTO products (name, category, price, image_url) VALUES
-('기본 흰색 티셔츠', 'tshirt', 19000, '/images/tshirt-front.png'),
-('기본 검정 티셔츠', 'tshirt', 19000, '/images/tshirt-back.png'),
-('오버핏 후드티', 'hoodie', 39000, '/images/hoodie.png');
-
-INSERT INTO designs (
-  user_id,
-  product_id,
-  title,
-  front_image_url,
-  back_image_url,
-  patch_x,
-  patch_y,
-  patch_width,
-  patch_height
-) VALUES
-(
-  1,
-  1,
-  '전면 패치 예시',
-  '/images/sample-front-design.png',
-  '/images/sample-back-design.png',
-  120,
-  160,
-  80,
-  80
 );
