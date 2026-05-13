@@ -41,7 +41,7 @@ function CartContent() {
       const raw = localStorage.getItem("user");
       if (!raw) return;
       const user = JSON.parse(raw);
-      await fetch(`http://localhost:5000/api/cart/${id}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cart/${id}`, {
         method: "DELETE",
         headers: { "user-id": String(user.id) },
       });
