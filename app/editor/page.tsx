@@ -36,6 +36,29 @@ const MOVE_STEP = 6;
 const MIN_SIZE = 40;
 const MAX_SIZE = 220;
 
+type ChatMessage = {
+  id: string;
+  role: "ai" | "user";
+  text: string;
+  patchSvg?: string;
+};
+
+const QUICK_CHIPS = [
+  "빈티지 아메리칸 스타일 패치",
+  "일본 애니메이션 감성 패치",
+  "미니멀 텍스트 패치",
+  "다크 고딕 해골 패치",
+];
+
+const PATCH_SVG_PLACEHOLDER = `<svg viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg" width="90" height="90">
+  <ellipse cx="45" cy="45" rx="42" ry="38" fill="#1a1a2e" stroke="#e8541e" stroke-width="2.5"/>
+  <ellipse cx="45" cy="45" rx="36" ry="32" fill="none" stroke="#e8541e" stroke-width="1" stroke-dasharray="3 3"/>
+  <text x="45" y="34" text-anchor="middle" fill="#e8541e" font-size="7" font-weight="700" font-family="Arial" letter-spacing="3">ADVERSARIAL</text>
+  <text x="45" y="52" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="900" font-family="Arial" letter-spacing="1">ACW</text>
+  <text x="45" y="63" text-anchor="middle" fill="#aaa" font-size="6" font-family="Arial" letter-spacing="2">EST. 2024</text>
+  <path d="M20 68 L45 73 L70 68" fill="none" stroke="#e8541e" stroke-width="1"/>
+</svg>`;
+
 export default function EditorPage() {
   const router = useRouter();
   const [activeColor, setActiveColor] = useState("#FFFFFF");
@@ -54,6 +77,20 @@ export default function EditorPage() {
   const [redoHistory, setRedoHistory] = useState<DesignState[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
+
+  // ── AI 패치 채팅 상태 ───────────────────────────────────────
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      id: "init",
+      role: "ai",
+      text: "안녕하세요! 원하시는 패치 디자인을 설명해주세요.\n스타일, 색상, 텍스트 등을 알려주시면 만들어 드릴게요.",
+    },
+  ]);
+  const [aiInput, setAiInput] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const aiTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const dragStartRef = useRef<{ startClientX: number; startClientY: number; startX: number; startY: number } | null>(null);
@@ -236,6 +273,70 @@ export default function EditorPage() {
 
   useEffect(() => { return () => { if (uploadedImg) URL.revokeObjectURL(uploadedImg); }; }, [uploadedImg]);
 
+  // ── AI 채팅 스크롤 ─────────────────────────────────────────
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, aiLoading]);
+
+  // ── AI 패치 전송 ───────────────────────────────────────────
+  const handleAiSend = async () => {
+    const text = aiInput.trim();
+    if (!text || aiLoading) return;
+    setAiInput("");
+
+    const userMsg: ChatMessage = { id: Date.now().toString(), role: "user", text };
+    setChatMessages((prev) => [...prev, userMsg]);
+    setAiLoading(true);
+
+    // TODO: 실제 AI API 연동 시 아래 setTimeout을 fetch 호출로 교체하세요.
+    await new Promise((resolve) => setTimeout(resolve, 1800));
+
+    const aiMsg: ChatMessage = {
+      id: (Date.now() + 1).toString(),
+      role: "ai",
+      text: "요청하신 스타일로 패치를 생성했어요! 마음에 드시면 캔버스에 바로 적용하실 수 있어요.",
+      patchSvg: PATCH_SVG_PLACEHOLDER,
+    };
+    setChatMessages((prev) => [...prev, aiMsg]);
+    setAiLoading(false);
+  };
+
+  const handleAiKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleAiSend();
+    }
+  };
+
+  const handleChipClick = (chip: string) => {
+    setAiInput(chip);
+    aiTextareaRef.current?.focus();
+  };
+
+  const handleApplyPatch = (svgString: string) => {
+    const blob = new Blob([svgString], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    if (uploadedImg) URL.revokeObjectURL(uploadedImg);
+    setUploadedImg(url);
+    setDesignState(DEFAULT_DESIGN_STATE);
+    setHistory([]);
+    setRedoHistory([]);
+    setSelectedDesign(false);
+  };
+
+  const handleRegenerate = async (msgId: string) => {
+    setAiLoading(true);
+    await new Promise((resolve) => setTimeout(resolve, 1400));
+    setChatMessages((prev) =>
+      prev.map((m) =>
+        m.id === msgId
+          ? { ...m, patchSvg: PATCH_SVG_PLACEHOLDER }
+          : m
+      )
+    );
+    setAiLoading(false);
+  };
+
   return (
     <div
       style={{ fontFamily: "'Pretendard Variable', 'Pretendard', -apple-system, sans-serif", background: "#fff", color: "#111", height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
@@ -252,6 +353,7 @@ export default function EditorPage() {
         .tool-icon { font-size: 16px; line-height: 1; }
         .right-tool { display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; padding: 12px 0; font-size: 11px; font-weight: 500; color: #444; transition: color 0.15s; border-radius: 8px; position: relative; }
         .right-tool:hover { color: #111; background: #f8f8f8; }
+        .right-tool.active { color: #e8541e; background: #fff5f2; }
         .color-sw { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; flex-shrink: 0; transition: transform 0.15s; }
         .color-sw:hover { transform: scale(1.18); }
         .color-sw.active { outline: 2.5px solid #e8541e; outline-offset: 2px; }
@@ -263,6 +365,24 @@ export default function EditorPage() {
         .cart-btn:disabled { background: #999; cursor: not-allowed; }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .cart-toast { animation: fadeInUp 0.2s ease; }
+        .ai-panel { display: flex; flex-direction: column; background: #fff; border-left: 1px solid #eee; overflow: hidden; transition: width 0.25s ease; flex-shrink: 0; }
+        .ai-panel.open { width: 300px; }
+        .ai-panel.closed { width: 0; }
+        .ai-chip { font-size: 11px; border: 1px solid #e8e8e8; border-radius: 20px; padding: 4px 10px; cursor: pointer; color: #666; background: #fff; white-space: nowrap; font-family: inherit; transition: border-color 0.15s, color 0.15s; }
+        .ai-chip:hover { border-color: #e8541e; color: #e8541e; }
+        .ai-send-btn { width: 32px; height: 32px; background: #111; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
+        .ai-send-btn:hover { background: #333; }
+        .ai-send-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .ai-textarea { flex: 1; border: 1px solid #e5e5e5; border-radius: 8px; padding: 8px 10px; font-size: 12px; resize: none; outline: none; font-family: inherit; color: #222; background: #fafafa; line-height: 1.45; min-height: 36px; max-height: 80px; }
+        .ai-textarea:focus { border-color: #ccc; background: #fff; }
+        .patch-action-btn { flex: 1; border: none; background: none; font-size: 11px; font-weight: 600; padding: 8px 0; cursor: pointer; color: #555; font-family: inherit; transition: background 0.1s; }
+        .patch-action-btn:first-child { border-right: 1px solid #f0f0f0; }
+        .patch-action-btn:hover { background: #fafafa; }
+        .patch-action-btn.primary { color: #e8541e; }
+        @keyframes typing { 0%,80%,100%{opacity:0.3} 40%{opacity:1} }
+        .dot { width: 5px; height: 5px; border-radius: 50%; background: #ccc; animation: typing 1.2s infinite; display: inline-block; }
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
       `}</style>
 
       {/* TOP BAR */}
@@ -366,6 +486,116 @@ export default function EditorPage() {
               <svg width="22" height="22" fill="none" stroke="#333" strokeWidth="1.6" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="#333"/><circle cx="17.5" cy="10.5" r=".5" fill="#333"/><circle cx="8.5" cy="7.5" r=".5" fill="#333"/><circle cx="6.5" cy="12.5" r=".5" fill="#333"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
               <span>디자인</span>
             </div>
+
+            {/* AI 패치 버튼 */}
+            <div
+              className={`right-tool${aiPanelOpen ? " active" : ""}`}
+              onClick={(e) => { e.stopPropagation(); setAiPanelOpen((v) => !v); }}
+            >
+              <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+                <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2z"/>
+                <path d="M8 12h.01M12 12h.01M16 12h.01" strokeWidth="2.5" strokeLinecap="round"/>
+              </svg>
+              <span>AI 패치</span>
+              {/* BETA 뱃지 */}
+              <span style={{ position: "absolute", top: 8, right: 6, background: "#fff5f0", color: "#e8541e", fontSize: 8, fontWeight: 700, padding: "1px 5px", borderRadius: 20, border: "1px solid #fdd0b8", lineHeight: 1.5 }}>
+                β
+              </span>
+            </div>
+          </div>
+
+          {/* AI 패치 채팅 패널 */}
+          <div className={`ai-panel ${aiPanelOpen ? "open" : "closed"}`} onClick={(e) => e.stopPropagation()}>
+            {/* 헤더 */}
+            <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#111" }}>
+                <svg width="15" height="15" fill="none" stroke="#e8541e" strokeWidth="1.8" viewBox="0 0 24 24">
+                  <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2z"/>
+                  <path d="M8 12h.01M12 12h.01M16 12h.01" strokeWidth="2.5" strokeLinecap="round"/>
+                </svg>
+                AI 패치 생성
+                <span style={{ background: "#fff5f0", color: "#e8541e", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 20, border: "1px solid #fdd0b8" }}>BETA</span>
+              </div>
+              <button
+                onClick={() => setAiPanelOpen(false)}
+                style={{ border: "none", background: "none", cursor: "pointer", color: "#999", fontSize: 18, lineHeight: 1, padding: "2px 4px", borderRadius: 4, fontFamily: "inherit" }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* 메시지 목록 */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 8px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {chatMessages.map((msg, idx) => (
+                <div key={msg.id} style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: msg.role === "user" ? "flex-end" : "flex-start" }}>
+                  <span style={{ fontSize: 10, color: "#aaa", marginBottom: 1 }}>{msg.role === "ai" ? "AI" : "나"}</span>
+                  <div style={{
+                    fontSize: 12, lineHeight: 1.5, padding: "8px 11px", maxWidth: 220, whiteSpace: "pre-wrap",
+                    background: msg.role === "ai" ? "#f5f5f5" : "#111",
+                    color: msg.role === "ai" ? "#222" : "#fff",
+                    borderRadius: msg.role === "ai" ? "0 10px 10px 10px" : "10px 10px 0 10px",
+                  }}>
+                    {msg.text}
+                  </div>
+
+                  {/* 빠른 칩 (첫 번째 AI 메시지에만) */}
+                  {msg.role === "ai" && idx === 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 4 }}>
+                      {QUICK_CHIPS.map((chip) => (
+                        <button key={chip} className="ai-chip" onClick={() => handleChipClick(chip)}>{chip}</button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 패치 미리보기 카드 */}
+                  {msg.patchSvg && (
+                    <div style={{ border: "1px solid #eee", borderRadius: 8, overflow: "hidden", marginTop: 4, width: 220 }}>
+                      <div style={{ background: "#f8f8f8", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px 0" }}
+                        dangerouslySetInnerHTML={{ __html: msg.patchSvg }} />
+                      <div style={{ display: "flex", borderTop: "1px solid #f0f0f0" }}>
+                        <button className="patch-action-btn" onClick={() => handleRegenerate(msg.id)}>다시 생성</button>
+                        <button className="patch-action-btn primary" onClick={() => handleApplyPatch(msg.patchSvg!)}>캔버스에 적용</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* 타이핑 인디케이터 */}
+              {aiLoading && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
+                  <span style={{ fontSize: 10, color: "#aaa" }}>AI</span>
+                  <div style={{ background: "#f5f5f5", borderRadius: "0 10px 10px 10px", padding: "10px 14px", display: "flex", gap: 4, alignItems: "center" }}>
+                    <div className="dot" />
+                    <div className="dot" />
+                    <div className="dot" />
+                  </div>
+                </div>
+              )}
+
+              <div ref={chatBottomRef} />
+            </div>
+
+            {/* 입력창 */}
+            <div style={{ padding: "10px 12px 12px", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+                <textarea
+                  ref={aiTextareaRef}
+                  className="ai-textarea"
+                  rows={1}
+                  placeholder="패치 스타일을 설명해주세요..."
+                  value={aiInput}
+                  onChange={(e) => setAiInput(e.target.value)}
+                  onKeyDown={handleAiKeyDown}
+                />
+                <button className="ai-send-btn" onClick={handleAiSend} disabled={aiLoading || !aiInput.trim()}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2">
+                    <line x1="22" y1="2" x2="11" y2="13"/>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" fill="#fff" stroke="none"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* 우측 옵션 패널 */}
@@ -406,7 +636,6 @@ export default function EditorPage() {
               <span style={{ fontWeight: 800, fontSize: 16 }}>{totalPrice.toLocaleString()}원</span>
             </div>
 
-            {/* 장바구니 담기 버튼 + 토스트 메시지 */}
             {cartMsg && (
               <div className="cart-toast" style={{ background: "#111", color: "#fff", borderRadius: 8, padding: "12px 16px", fontSize: 13, fontWeight: 600, textAlign: "center", marginBottom: 10 }}>
                 {cartMsg}
