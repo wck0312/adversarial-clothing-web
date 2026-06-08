@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+// ── HF Space URL ───────────────────────────────────────────
+const HF_SPACE_URL = "https://kcw0312-adversarial-attack-api.hf.space";
+
 const COLORS = [
   { name: "화이트", hex: "#FFFFFF", border: true },
   { name: "블랙", hex: "#111111" },
@@ -43,6 +46,15 @@ type ChatMessage = {
   patchSvg?: string;
 };
 
+// ── AI 패치+ 결과 타입 ─────────────────────────────────────
+type AdvResult = {
+  original: { label: string; confidence: number; image: string };
+  adversarial: { label: string; confidence: number; image: string };
+  success: boolean;
+  attack_type: string;
+  epsilon: number;
+};
+
 const QUICK_CHIPS = [
   "빈티지 아메리칸 스타일 패치",
   "일본 애니메이션 감성 패치",
@@ -78,7 +90,7 @@ export default function EditorPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
 
-  // ── AI 패치 채팅 상태 ───────────────────────────────────────
+  // ── AI 패치 채팅 상태 ───────────────────────────────────────────
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
@@ -91,6 +103,18 @@ export default function EditorPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const aiTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // ── AI 패치+ 상태 ────────────────────────────────────────────────
+  const [advPanelOpen, setAdvPanelOpen] = useState(false);
+  const [advFile, setAdvFile] = useState<File | null>(null);
+  const [advPreview, setAdvPreview] = useState<string | null>(null);
+  const [advAttackType, setAdvAttackType] = useState<"fgsm" | "pgd">("fgsm");
+  const [advEpsilon, setAdvEpsilon] = useState(0.03);
+  const [advSteps, setAdvSteps] = useState(10);
+  const [advLoading, setAdvLoading] = useState(false);
+  const [advResult, setAdvResult] = useState<AdvResult | null>(null);
+  const [advError, setAdvError] = useState<string | null>(null);
+  const advFileRef = useRef<HTMLInputElement>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const dragStartRef = useRef<{ startClientX: number; startClientY: number; startX: number; startY: number } | null>(null);
@@ -184,6 +208,64 @@ export default function EditorPage() {
     if (fileRef.current) fileRef.current.value = "";
   };
 
+  // ── AI 패치+ 이미지 선택 ──────────────────────────────────────
+  const handleAdvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAdvFile(file);
+    setAdvResult(null);
+    setAdvError(null);
+    const url = URL.createObjectURL(file);
+    if (advPreview) URL.revokeObjectURL(advPreview);
+    setAdvPreview(url);
+    if (advFileRef.current) advFileRef.current.value = "";
+  };
+
+  // ── AI 패치+ 공격 실행 ────────────────────────────────────────
+  const handleAdvAttack = async () => {
+    if (!advFile || advLoading) return;
+    setAdvLoading(true);
+    setAdvResult(null);
+    setAdvError(null);
+
+    try {
+      const fd = new FormData();
+      fd.append("file", advFile);
+      fd.append("attack_type", advAttackType);
+      fd.append("epsilon", String(advEpsilon));
+      fd.append("steps", String(advSteps));
+
+      const res = await fetch(`${HF_SPACE_URL}/attack`, {
+        method: "POST",
+        body: fd,
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || `서버 오류 (${res.status})`);
+      }
+
+      const data: AdvResult = await res.json();
+      setAdvResult(data);
+    } catch (err: any) {
+      setAdvError(err.message ?? "알 수 없는 오류가 발생했습니다.");
+    } finally {
+      setAdvLoading(false);
+    }
+  };
+
+  // ── AI 패치+ 결과 → 캔버스 적용 ──────────────────────────────
+  const handleAdvApply = (b64: string) => {
+    const url = `data:image/png;base64,${b64}`;
+    if (uploadedImg) URL.revokeObjectURL(uploadedImg);
+    setUploadedImg(url);
+    setDesignState(DEFAULT_DESIGN_STATE);
+    setHistory([]);
+    setRedoHistory([]);
+    setSelectedDesign(false);
+    setAdvPanelOpen(false);
+  };
+
   // ── 장바구니 담기 ──────────────────────────────────────────
   const handleAddToCart = async () => {
     const raw = localStorage.getItem("user");
@@ -272,6 +354,7 @@ export default function EditorPage() {
   }, [isDragging, activeResizeHandle, currentTransform, viewSide]);
 
   useEffect(() => { return () => { if (uploadedImg) URL.revokeObjectURL(uploadedImg); }; }, [uploadedImg]);
+  useEffect(() => { return () => { if (advPreview) URL.revokeObjectURL(advPreview); }; }, [advPreview]);
 
   // ── AI 채팅 스크롤 ─────────────────────────────────────────
   useEffect(() => {
@@ -288,7 +371,6 @@ export default function EditorPage() {
     setChatMessages((prev) => [...prev, userMsg]);
     setAiLoading(true);
 
-    // TODO: 실제 AI API 연동 시 아래 setTimeout을 fetch 호출로 교체하세요.
     await new Promise((resolve) => setTimeout(resolve, 1800));
 
     const aiMsg: ChatMessage = {
@@ -383,6 +465,16 @@ export default function EditorPage() {
         .dot { width: 5px; height: 5px; border-radius: 50%; background: #ccc; animation: typing 1.2s infinite; display: inline-block; }
         .dot:nth-child(2) { animation-delay: 0.2s; }
         .dot:nth-child(3) { animation-delay: 0.4s; }
+        .adv-upload-zone { border: 1.5px dashed #ddd; border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: border-color 0.15s; background: #fafafa; }
+        .adv-upload-zone:hover { border-color: #e8541e; }
+        .adv-attack-btn { width: 100%; height: 38px; background: #111; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+        .adv-attack-btn:hover { background: #333; }
+        .adv-attack-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .adv-apply-btn { width: 100%; height: 36px; background: #e8541e; color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+        .adv-apply-btn:hover { background: #d4461a; }
+        .adv-select { background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 6px; padding: 5px 8px; font-size: 12px; font-family: inherit; color: #333; outline: none; width: 100%; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { width: 18px; height: 18px; border: 2px solid #eee; border-top-color: #e8541e; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
       `}</style>
 
       {/* TOP BAR */}
@@ -490,23 +582,32 @@ export default function EditorPage() {
             {/* AI 패치 버튼 */}
             <div
               className={`right-tool${aiPanelOpen ? " active" : ""}`}
-              onClick={(e) => { e.stopPropagation(); setAiPanelOpen((v) => !v); }}
+              onClick={(e) => { e.stopPropagation(); setAiPanelOpen((v) => !v); if (advPanelOpen) setAdvPanelOpen(false); }}
             >
               <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
                 <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2z"/>
                 <path d="M8 12h.01M12 12h.01M16 12h.01" strokeWidth="2.5" strokeLinecap="round"/>
               </svg>
               <span>AI 패치</span>
-              {/* BETA 뱃지 */}
-              <span style={{ position: "absolute", top: 8, right: 6, background: "#fff5f0", color: "#e8541e", fontSize: 8, fontWeight: 700, padding: "1px 5px", borderRadius: 20, border: "1px solid #fdd0b8", lineHeight: 1.5 }}>
-                β
-              </span>
+              <span style={{ position: "absolute", top: 8, right: 6, background: "#fff5f0", color: "#e8541e", fontSize: 8, fontWeight: 700, padding: "1px 5px", borderRadius: 20, border: "1px solid #fdd0b8", lineHeight: 1.5 }}>β</span>
+            </div>
+
+            {/* AI 패치+ 버튼 */}
+            <div
+              className={`right-tool${advPanelOpen ? " active" : ""}`}
+              onClick={(e) => { e.stopPropagation(); setAdvPanelOpen((v) => !v); if (aiPanelOpen) setAiPanelOpen(false); }}
+            >
+              <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+                <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2z"/>
+                <path d="M12 8v8M8 12h8" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <span>AI 패치+</span>
+              <span style={{ position: "absolute", top: 8, right: 6, background: "#f0fff4", color: "#22a35a", fontSize: 8, fontWeight: 700, padding: "1px 5px", borderRadius: 20, border: "1px solid #b7ebc9", lineHeight: 1.5 }}>NEW</span>
             </div>
           </div>
 
           {/* AI 패치 채팅 패널 */}
           <div className={`ai-panel ${aiPanelOpen ? "open" : "closed"}`} onClick={(e) => e.stopPropagation()}>
-            {/* 헤더 */}
             <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#111" }}>
                 <svg width="15" height="15" fill="none" stroke="#e8541e" strokeWidth="1.8" viewBox="0 0 24 24">
@@ -516,29 +617,16 @@ export default function EditorPage() {
                 AI 패치 생성
                 <span style={{ background: "#fff5f0", color: "#e8541e", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 20, border: "1px solid #fdd0b8" }}>BETA</span>
               </div>
-              <button
-                onClick={() => setAiPanelOpen(false)}
-                style={{ border: "none", background: "none", cursor: "pointer", color: "#999", fontSize: 18, lineHeight: 1, padding: "2px 4px", borderRadius: 4, fontFamily: "inherit" }}
-              >
-                ×
-              </button>
+              <button onClick={() => setAiPanelOpen(false)} style={{ border: "none", background: "none", cursor: "pointer", color: "#999", fontSize: 18, lineHeight: 1, padding: "2px 4px", borderRadius: 4, fontFamily: "inherit" }}>×</button>
             </div>
 
-            {/* 메시지 목록 */}
             <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 8px", display: "flex", flexDirection: "column", gap: 10 }}>
               {chatMessages.map((msg, idx) => (
                 <div key={msg.id} style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: msg.role === "user" ? "flex-end" : "flex-start" }}>
                   <span style={{ fontSize: 10, color: "#aaa", marginBottom: 1 }}>{msg.role === "ai" ? "AI" : "나"}</span>
-                  <div style={{
-                    fontSize: 12, lineHeight: 1.5, padding: "8px 11px", maxWidth: 220, whiteSpace: "pre-wrap",
-                    background: msg.role === "ai" ? "#f5f5f5" : "#111",
-                    color: msg.role === "ai" ? "#222" : "#fff",
-                    borderRadius: msg.role === "ai" ? "0 10px 10px 10px" : "10px 10px 0 10px",
-                  }}>
+                  <div style={{ fontSize: 12, lineHeight: 1.5, padding: "8px 11px", maxWidth: 220, whiteSpace: "pre-wrap", background: msg.role === "ai" ? "#f5f5f5" : "#111", color: msg.role === "ai" ? "#222" : "#fff", borderRadius: msg.role === "ai" ? "0 10px 10px 10px" : "10px 10px 0 10px" }}>
                     {msg.text}
                   </div>
-
-                  {/* 빠른 칩 (첫 번째 AI 메시지에만) */}
                   {msg.role === "ai" && idx === 0 && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 4 }}>
                       {QUICK_CHIPS.map((chip) => (
@@ -546,12 +634,9 @@ export default function EditorPage() {
                       ))}
                     </div>
                   )}
-
-                  {/* 패치 미리보기 카드 */}
                   {msg.patchSvg && (
                     <div style={{ border: "1px solid #eee", borderRadius: 8, overflow: "hidden", marginTop: 4, width: 220 }}>
-                      <div style={{ background: "#f8f8f8", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px 0" }}
-                        dangerouslySetInnerHTML={{ __html: msg.patchSvg }} />
+                      <div style={{ background: "#f8f8f8", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px 0" }} dangerouslySetInnerHTML={{ __html: msg.patchSvg }} />
                       <div style={{ display: "flex", borderTop: "1px solid #f0f0f0" }}>
                         <button className="patch-action-btn" onClick={() => handleRegenerate(msg.id)}>다시 생성</button>
                         <button className="patch-action-btn primary" onClick={() => handleApplyPatch(msg.patchSvg!)}>캔버스에 적용</button>
@@ -560,41 +645,149 @@ export default function EditorPage() {
                   )}
                 </div>
               ))}
-
-              {/* 타이핑 인디케이터 */}
               {aiLoading && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
                   <span style={{ fontSize: 10, color: "#aaa" }}>AI</span>
                   <div style={{ background: "#f5f5f5", borderRadius: "0 10px 10px 10px", padding: "10px 14px", display: "flex", gap: 4, alignItems: "center" }}>
-                    <div className="dot" />
-                    <div className="dot" />
-                    <div className="dot" />
+                    <div className="dot" /><div className="dot" /><div className="dot" />
                   </div>
                 </div>
               )}
-
               <div ref={chatBottomRef} />
             </div>
 
-            {/* 입력창 */}
             <div style={{ padding: "10px 12px 12px", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
               <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
-                <textarea
-                  ref={aiTextareaRef}
-                  className="ai-textarea"
-                  rows={1}
-                  placeholder="패치 스타일을 설명해주세요..."
-                  value={aiInput}
-                  onChange={(e) => setAiInput(e.target.value)}
-                  onKeyDown={handleAiKeyDown}
-                />
+                <textarea ref={aiTextareaRef} className="ai-textarea" rows={1} placeholder="패치 스타일을 설명해주세요..." value={aiInput} onChange={(e) => setAiInput(e.target.value)} onKeyDown={handleAiKeyDown} />
                 <button className="ai-send-btn" onClick={handleAiSend} disabled={aiLoading || !aiInput.trim()}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2">
-                    <line x1="22" y1="2" x2="11" y2="13"/>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2" fill="#fff" stroke="none"/>
-                  </svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2" fill="#fff" stroke="none"/></svg>
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* ── AI 패치+ 패널 ───────────────────────────────────── */}
+          <div className={`ai-panel ${advPanelOpen ? "open" : "closed"}`} onClick={(e) => e.stopPropagation()}>
+            {/* 헤더 */}
+            <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#111" }}>
+                <svg width="15" height="15" fill="none" stroke="#22a35a" strokeWidth="1.8" viewBox="0 0 24 24">
+                  <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2z"/>
+                  <path d="M12 8v8M8 12h8" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                AI 패치+
+                <span style={{ background: "#f0fff4", color: "#22a35a", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 20, border: "1px solid #b7ebc9" }}>NEW</span>
+              </div>
+              <button onClick={() => setAdvPanelOpen(false)} style={{ border: "none", background: "none", cursor: "pointer", color: "#999", fontSize: 18, lineHeight: 1, padding: "2px 4px", borderRadius: 4, fontFamily: "inherit" }}>×</button>
+            </div>
+
+            {/* 본문 */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "14px" }}>
+              {/* 설명 */}
+              <p style={{ fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 14 }}>
+                이미지를 업로드하면 AI가 적대적 변환(FGSM/PGD)을 적용해 독특한 패치 이미지를 만들어줘요. 결과물을 바로 캔버스에 적용할 수 있어요.
+              </p>
+
+              {/* 이미지 업로드 */}
+              <div className="adv-upload-zone" onClick={() => advFileRef.current?.click()}>
+                {advPreview ? (
+                  <img src={advPreview} alt="preview" style={{ width: "100%", maxHeight: 120, objectFit: "contain", borderRadius: 6 }} />
+                ) : (
+                  <>
+                    <svg width="28" height="28" fill="none" stroke="#ccc" strokeWidth="1.5" viewBox="0 0 24 24" style={{ marginBottom: 6 }}>
+                      <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
+                    </svg>
+                    <p style={{ fontSize: 12, color: "#aaa", margin: 0 }}>이미지를 클릭해서 선택하세요</p>
+                    <p style={{ fontSize: 10, color: "#ccc", margin: "4px 0 0" }}>JPG, PNG, WEBP</p>
+                  </>
+                )}
+                <input ref={advFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAdvFileChange} />
+              </div>
+
+              {advPreview && (
+                <button style={{ marginTop: 6, fontSize: 11, color: "#aaa", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+                  onClick={() => advFileRef.current?.click()}>
+                  다른 이미지 선택
+                </button>
+              )}
+
+              {/* 공격 설정 */}
+              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 11, color: "#666", fontWeight: 600, display: "block", marginBottom: 4 }}>공격 기법</label>
+                  <select className="adv-select" value={advAttackType} onChange={(e) => setAdvAttackType(e.target.value as "fgsm" | "pgd")}>
+                    <option value="fgsm">FGSM (빠름)</option>
+                    <option value="pgd">PGD (정밀, 느림)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, color: "#666", fontWeight: 600, display: "block", marginBottom: 4 }}>
+                    강도 (epsilon): <span style={{ color: "#e8541e" }}>{advEpsilon.toFixed(3)}</span>
+                  </label>
+                  <input type="range" min={0.005} max={0.1} step={0.005} value={advEpsilon}
+                    onChange={(e) => setAdvEpsilon(Number(e.target.value))}
+                    style={{ width: "100%", accentColor: "#e8541e" }} />
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#ccc" }}>
+                    <span>미세 (0.005)</span><span>강렬 (0.1)</span>
+                  </div>
+                </div>
+                {advAttackType === "pgd" && (
+                  <div>
+                    <label style={{ fontSize: 11, color: "#666", fontWeight: 600, display: "block", marginBottom: 4 }}>PGD 스텝: {advSteps}</label>
+                    <input type="range" min={1} max={50} step={1} value={advSteps}
+                      onChange={(e) => setAdvSteps(Number(e.target.value))}
+                      style={{ width: "100%", accentColor: "#e8541e" }} />
+                  </div>
+                )}
+              </div>
+
+              {/* 실행 버튼 */}
+              <button className="adv-attack-btn" style={{ marginTop: 14 }} disabled={!advFile || advLoading} onClick={handleAdvAttack}>
+                {advLoading ? (
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <span className="spinner" /> 변환 중...
+                  </span>
+                ) : "적대적 변환 실행"}
+              </button>
+
+              {/* 오류 */}
+              {advError && (
+                <div style={{ marginTop: 10, background: "#fff5f5", border: "1px solid #fdd", borderRadius: 8, padding: "10px 12px", fontSize: 11, color: "#c0392b" }}>
+                  ⚠️ {advError}
+                </div>
+              )}
+
+              {/* 결과 */}
+              {advResult && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                    <div style={{ flex: 1, textAlign: "center" }}>
+                      <p style={{ fontSize: 10, color: "#aaa", marginBottom: 4 }}>원본</p>
+                      <img src={`data:image/png;base64,${advResult.original.image}`} alt="original"
+                        style={{ width: "100%", borderRadius: 6, border: "1px solid #eee" }} />
+                      <p style={{ fontSize: 10, color: "#666", marginTop: 4, lineHeight: 1.3 }}>{advResult.original.label}<br/>{(advResult.original.confidence * 100).toFixed(1)}%</p>
+                    </div>
+                    <div style={{ flex: 1, textAlign: "center" }}>
+                      <p style={{ fontSize: 10, color: "#aaa", marginBottom: 4 }}>변환 결과</p>
+                      <img src={`data:image/png;base64,${advResult.adversarial.image}`} alt="adversarial"
+                        style={{ width: "100%", borderRadius: 6, border: "1px solid #eee" }} />
+                      <p style={{ fontSize: 10, color: "#666", marginTop: 4, lineHeight: 1.3 }}>{advResult.adversarial.label}<br/>{(advResult.adversarial.confidence * 100).toFixed(1)}%</p>
+                    </div>
+                  </div>
+
+                  {/* 성공 여부 */}
+                  <div style={{ background: advResult.success ? "#f0fff4" : "#f5f5f5", borderRadius: 8, padding: "8px 12px", fontSize: 11, color: advResult.success ? "#22a35a" : "#888", marginBottom: 10, textAlign: "center", fontWeight: 600 }}>
+                    {advResult.success
+                      ? `✅ 변환 성공: "${advResult.original.label}" → "${advResult.adversarial.label}"`
+                      : `라벨 유지됨 — epsilon을 높여보세요`}
+                  </div>
+
+                  {/* 적용 버튼 */}
+                  <button className="adv-apply-btn" onClick={() => handleAdvApply(advResult.adversarial.image)}>
+                    변환된 이미지를 캔버스에 적용
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
